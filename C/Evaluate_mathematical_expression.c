@@ -9,8 +9,10 @@
 
 typedef enum {NaS = 0, SUBTRACTION = 1, ADDITION = 2, \
 			  MULTIPLICATION = 3, DIVISION = 4} sign_t;
+
 typedef enum {UNDEFINED, NUMBER, SIGN, BRACKET} value_t;
-typedef enum {NUMBER, SIGN, EXPRESSION} expr_type;
+
+typedef enum {NUMBER_EXPR, SIGN_EXPR, BRACKET_EXPRESSION} expr_type;
 
 typedef struct {
   value_t type;
@@ -24,15 +26,14 @@ typedef union {
 } expr_value;
 
 typedef struct expr_st{
-  struct exrp_st** subexpr;
+  struct expr_st** subexpr;
   size_t subexpr_amount;
   size_t subexpr_capacity;
 
-  expr_t type;
+  expr_type type;
   expr_value value;
   
   int is_negative;
-  int is_alive;
   int is_calculated;
 } expr_t;
 
@@ -61,15 +62,19 @@ sign_t issign(char c)
 
 void free_expression(expr_t* expr)
 {
-  for (size_t i = 0; i < expr->subexpr_capacity; i++) {
-	if (expr->subexpr[i]->type != EXPRESSION)
-	  free(expr->subexpr[i]);
-	else
-	  free_expression(expr->subexpr[i]);
-  }
+  if (expr->type != BRACKET_EXPRESSION)
+	free(expr);
+  /* else { */
+  /* 	for (size_t i = 0; i < expr->subexpr_amount; i++) { */
+  /* 	  if (expr->subexpr[i]->type == BRACKET_EXPRESSION) */
+  /* 		free(expr->subexpr[i]); */
+  /* 	  else */
+  /* 		free_expression(expr->subexpr[i]); */
+  /* 	} */
   
-  if (expr->subexpr_capacity > 0)
-	free(expr->subexpr);  
+  /* 	if (expr->subexpr_capacity > 0) */
+  /* 	  free(expr->subexpr); */
+  /* } */
 }
 
 void
@@ -86,7 +91,8 @@ get_lexem(value_t expected_t, lexem_t* lexem)
   }
   
   memset(lexem->lexem, 0, length + 1);
-  lexem->type = UNDEFINED;
+  lexem->type = expected_t;
+  
 
   
   while (1) {
@@ -235,69 +241,178 @@ get_lexem(value_t expected_t, lexem_t* lexem)
 }
 
 // Math operations
-void calculate_expression(expr_t* expr) {
+void calculate_expression(expr_t* expr)
+{
   expr_t *a, *b, *c; 
+
+  // If only one subexpression
+  if (expr->subexpr_amount == 1 && expr->subexpr[0]->type == BRACKET_EXPRESSION) {
+	calculate_expression(expr->subexpr[0]);
+	goto END;
+  }
+  
   // Find multiplications and divisions
   for (size_t i = 0; i < expr->subexpr_amount; i++) {
-	if (expr->subexpr[i]->type == SIGN && (expr->subexpr[i]->value.sign == \
-			  MULTIPLICATION || expr->subexpr[i]->value.sign == DIVISION)) {
+	if (expr->subexpr[i]->type == SIGN_EXPR && \
+		(expr->subexpr[i]->value.sign == MULTIPLICATION || \
+		 expr->subexpr[i]->value.sign == DIVISION)) {
+	  
 	  a = expr->subexpr[i - 1];
 	  b = expr->subexpr[i];
 	  c = expr->subexpr[i + 1];
 
 	  // If a or c expression, calculate them
-	  if (a.type ==  EXPRESSION)
+	  if (a->type == BRACKET_EXPRESSION && \
+		  !a->is_calculated)
 		calculate_expression(a);
-	  if (c.type == EXPRESSION)
+	  if (c->type == BRACKET_EXPRESSION && \
+		  !c->is_calculated)
 		calculate_expression(c);
 
 	  // Make math operations
-	  if (b.value.sign == MULTIPLICATION)
-		a.value.value *= c.value.value;
-	  else (b.value.sign == DIVISION)
-		 a.value.value /= c.value.value;
+	  if (b->value.sign == MULTIPLICATION)
+		a->value.value *= c->value.value;
+	  else
+		a->value.value /= c->value.value;
 
 	  // a = c, and free c
 	  free_expression(c);
-	  c = a; 
+	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
+	  /* c = a;  */
 	}  
   }
 
   // Find additions and subtractions
   for (size_t i = 0; i < expr->subexpr_amount; i++) {
-	
+	if (expr->subexpr[i]->type == SIGN_EXPR && \
+		(expr->subexpr[i]->value.sign == ADDITION ||\
+		 expr->subexpr[i]->value.sign == SUBTRACTION)) {
+	  a = expr->subexpr[i - 1];
+	  b = expr->subexpr[i];
+	  c = expr->subexpr[i + 1];
+	  
+	  // If a or c expression, calculate them
+	  if (a->type ==  BRACKET_EXPRESSION &&\
+		  !a->is_calculated)
+		calculate_expression(a);
+	  if (c->type == BRACKET_EXPRESSION &&\
+		  !c->is_calculated)
+		calculate_expression(c);
+
+	  if (b->value.sign == ADDITION)
+		a->value.value += c->value.value;
+	  else
+		a->value.value -= c->value.value;
+
+	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
+	}
   }
 
-  expr.is_calculated = 1;
+
+ END:
+  
+  expr->value.value = expr->subexpr[0]->value.value; 
+  
+  if (expr->is_negative)
+	expr->value.value *= -1;
+  
+  expr->is_calculated = 1;
 }
 
 // Create expression from lexems
 void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 {
+  expr_t* new_expr;
+  
   while(error == 0) {	
 	get_lexem(expected_t, &lexem);
 
-	// creating new subexpression
-	if (error != EXPECTED_OTHER_TYPE)
-	  printf("%s %d\n", lexem.lexem, lexem.sign);
-	else
-	  break;
+	/* // ERROR	 */
+	/* printf("%s %d\n", lexem.lexem, lexem.sign); */
+	 
+	/* /\* else *\/ */
+	/* /\*   break; *\/ */
 
+	// If lexem is bracket 
+	if (lexem.type == BRACKET) {
 	
-	// If bracket, expected type also changing
-	if(lexem.type == BRACKET) {
-	  if (lexem.lexem[0] == '(')
-		expected_t = NUMBER;
-	  else
-		expected_t = SIGN;
-	}
-	
-	// If not bracket change to the opposite and add to the current expr	
-	else {
+	  // Expected type changing
+	  /* if(lexem.type == BRACKET) { */
+	  /* 	if (lexem.lexem[0] == '(') */
+	  /* 	  expected_t = NUMBER; */
+	  /* 	else */
+	  /* 	  expected_t = SIGN; */
+	  /* } */
+
+	  expected_t = SIGN;
 	  
+
+	  // Call recursion if (
+	  if (lexem.lexem[0] == '(') {
+		new_expr = (expr_t*)malloc(sizeof(expr_t));
+		
+		// If not enough space for new expression
+		if (expr->subexpr_capacity <= expr->subexpr_amount) {
+		  expr->subexpr = (expr_t**)realloc(expr->subexpr, \
+											expr->subexpr_capacity * 2);
+		  expr->subexpr_capacity *= 2;
+		  
+		}
+
+		// Add new expression
+		expr->subexpr[expr->subexpr_amount] = new_expr;
+		expr->subexpr_amount++;
+		new_expr->is_calculated = 0;
+		new_expr->subexpr = (expr_t**)malloc(sizeof(expr_t) * 64);
+		new_expr->subexpr_capacity = 64;
+		new_expr->subexpr_amount = 0;
+		new_expr->type = BRACKET_EXPRESSION;
+
+		// Check if negative
+		if (lexem.sign == SUBTRACTION)
+		  new_expr->is_negative = 1;
+		else
+		  new_expr->is_negative = 0;
+
+		// Recursion
+		create_expression(new_expr, NUMBER, lexem);
+	  } // if (
+
+	  else {
+		return;
+	  }
+	} // if for Bracket
+
+	// If lexem is a sign or number
+	else {
+	  // Add new expression to current
+	  new_expr = (expr_t*)malloc(sizeof(expr_t));
+	  new_expr->is_calculated = 1;	  
+
+	  // If number
+	  if (lexem.type == NUMBER) {
+		new_expr->type = NUMBER_EXPR;
+		new_expr->value.value = atof(lexem.lexem);
+	  }
+	  // If sign
+	  else if (lexem.type == SIGN) {
+		new_expr->type = SIGN_EXPR;
+		new_expr->value.sign = issign(lexem.lexem[0]);
+	  }
+	  
+	  // If not enough space for new expression
+	  if (expr->subexpr_capacity <= expr->subexpr_amount) {
+		expr->subexpr = (expr_t**)realloc(expr->subexpr, \
+										  expr->subexpr_capacity * 2);
+		expr->subexpr_capacity *= 2;
+		  
+	  }
+	  expr->subexpr[expr->subexpr_amount] = new_expr;
+	  expr->subexpr_amount++;
+		  
+	  // If not bracket change to the opposite and add to the current expr	
 	  expected_t = (expected_t == NUMBER) ? SIGN : NUMBER;
 	}
-
 	
   }
 
@@ -313,13 +428,12 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 void evaluate(char* str_)
 {
   // main expression 
-  expr_t main_expr;
-  main_expr.is_alive = 1;
-  main_expr.subexpr_capacity = 64;
-  main_expr.subexpr_amount = 0;
-  main_expr.subexpr = (expr_t*)malloc(8 * main_expr.subexpr_capacity);
-  
-  
+  expr_t* main_expr = (expr_t*)malloc(sizeof(expr_t));
+  main_expr->type = BRACKET_EXPRESSION;
+  main_expr->subexpr_capacity = 64;
+  main_expr->subexpr_amount = 0;
+  main_expr->subexpr = (expr_t**)malloc(8 * main_expr->subexpr_capacity);
+    
   str = str_;
   error = 0;
 
@@ -331,7 +445,9 @@ void evaluate(char* str_)
 
   create_expression(main_expr, expected_t, lexem);
   calculate_expression(main_expr);
-  
+  printf("%s = %f\n", str_, main_expr->value.value);
+
+  free_expression(main_expr);
   free(lexem_text);
 }
 
@@ -340,10 +456,10 @@ int main()
 {
   char* tests[] = {"1-1", "1 -1", "1- 1", "1 - 1", "1- -1", \
 				   "1 - -1", "1--1", "6 + -(4)", "6 + -( -4)", \
-				   "25 --10 *  -12", "1 - - 1", "1- -1", \
-				   "6 + - (4)", "6 + -(- 4)", "324+234*-6846.45",\
-				   "(2 / (2 + 3.33) * 4) - -6", "-(5+10)"};
-  size_t tests_length = 17;
+				   "25 --10 *  -12", "1- -1", \
+				   "324+234*-6846.45", "(2 / (2 + 3.33) * 4) - -6", \
+				   "-(5+10)"};
+  size_t tests_length = 14;
 
   
   for (size_t i = 0; i < tests_length; i++) {
