@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #define ZERO_LEXEM 1
 #define END_OF_STR 2
@@ -22,7 +23,7 @@ typedef struct {
 
 typedef union {
   sign_t sign;
-  float value;
+  double value;
 } expr_value;
 
 typedef struct expr_st{
@@ -64,17 +65,24 @@ void free_expression(expr_t* expr)
 {
   if (expr->type != BRACKET_EXPRESSION)
 	free(expr);
-  /* else { */
-  /* 	for (size_t i = 0; i < expr->subexpr_amount; i++) { */
-  /* 	  if (expr->subexpr[i]->type == BRACKET_EXPRESSION) */
-  /* 		free(expr->subexpr[i]); */
-  /* 	  else */
-  /* 		free_expression(expr->subexpr[i]); */
-  /* 	} */
   
-  /* 	if (expr->subexpr_capacity > 0) */
-  /* 	  free(expr->subexpr); */
-  /* } */
+  else {
+	free(expr->subexpr[0]);
+	
+	for (size_t i = 1; i < expr->subexpr_amount; i+=2) {
+	  if (expr->subexpr[i]->type != BRACKET_EXPRESSION)
+		free(expr->subexpr[i]);	  
+	  else
+		free_expression(expr->subexpr[i]);
+
+	  expr->subexpr[i] = NULL; 
+	}
+  
+	if (expr->subexpr_capacity > 0)
+	  free(expr->subexpr);
+	
+	free(expr);
+  }
 }
 
 void
@@ -90,7 +98,7 @@ get_lexem(value_t expected_t, lexem_t* lexem)
 	return;
   }
   
-  memset(lexem->lexem, 0, length + 1);
+  memset(lexem->lexem, 0, length);
   lexem->type = expected_t;
   
 
@@ -276,7 +284,7 @@ void calculate_expression(expr_t* expr)
 		a->value.value /= c->value.value;
 
 	  // a = c, and free c
-	  free_expression(c);
+	  // free_expression(c);
 	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
 	  /* c = a;  */
 	}  
@@ -287,6 +295,7 @@ void calculate_expression(expr_t* expr)
 	if (expr->subexpr[i]->type == SIGN_EXPR && \
 		(expr->subexpr[i]->value.sign == ADDITION ||\
 		 expr->subexpr[i]->value.sign == SUBTRACTION)) {
+	  
 	  a = expr->subexpr[i - 1];
 	  b = expr->subexpr[i];
 	  c = expr->subexpr[i + 1];
@@ -327,25 +336,9 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
   while(error == 0) {	
 	get_lexem(expected_t, &lexem);
 
-	/* // ERROR	 */
-	/* printf("%s %d\n", lexem.lexem, lexem.sign); */
-	 
-	/* /\* else *\/ */
-	/* /\*   break; *\/ */
-
 	// If lexem is bracket 
 	if (lexem.type == BRACKET) {
-	
-	  // Expected type changing
-	  /* if(lexem.type == BRACKET) { */
-	  /* 	if (lexem.lexem[0] == '(') */
-	  /* 	  expected_t = NUMBER; */
-	  /* 	else */
-	  /* 	  expected_t = SIGN; */
-	  /* } */
-
 	  expected_t = SIGN;
-	  
 
 	  // Call recursion if (
 	  if (lexem.lexem[0] == '(') {
@@ -356,7 +349,6 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		  expr->subexpr = (expr_t**)realloc(expr->subexpr, \
 											expr->subexpr_capacity * 2);
 		  expr->subexpr_capacity *= 2;
-		  
 		}
 
 		// Add new expression
@@ -425,13 +417,14 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 }
 
 // evaluate expression
-void evaluate(char* str_)
+void evaluate(const char* str_)
 {
   // main expression 
   expr_t* main_expr = (expr_t*)malloc(sizeof(expr_t));
   main_expr->type = BRACKET_EXPRESSION;
   main_expr->subexpr_capacity = 64;
   main_expr->subexpr_amount = 0;
+  main_expr->is_negative = 0;
   main_expr->subexpr = (expr_t**)malloc(8 * main_expr->subexpr_capacity);
     
   str = str_;
@@ -445,7 +438,11 @@ void evaluate(char* str_)
 
   create_expression(main_expr, expected_t, lexem);
   calculate_expression(main_expr);
-  printf("%s = %f\n", str_, main_expr->value.value);
+
+  if (fabs(main_expr->value.value - (int)main_expr->value.value) > 0)
+	printf("%s = %f\n", str_, main_expr->value.value);
+  else
+	printf("%s = %d\n", str_, (int)main_expr->value.value);
 
   free_expression(main_expr);
   free(lexem_text);
@@ -458,8 +455,8 @@ int main()
 				   "1 - -1", "1--1", "6 + -(4)", "6 + -( -4)", \
 				   "25 --10 *  -12", "1- -1", \
 				   "324+234*-6846.45", "(2 / (2 + 3.33) * 4) - -6", \
-				   "-(5+10)"};
-  size_t tests_length = 14;
+				   "-(5+10)", "(1+(45--(10 * 10))) * -0", "12*-1", "1 /1", "(-123)", "123", "2 /2+3 * 4.75- -6", "2 / (2 + 3) * 4.33 - -6", "12* 123"};
+  size_t tests_length = 22;
 
   
   for (size_t i = 0; i < tests_length; i++) {
