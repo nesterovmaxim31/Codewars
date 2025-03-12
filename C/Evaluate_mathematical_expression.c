@@ -70,8 +70,9 @@ void free_expression(expr_t* expr)
 	free(expr->subexpr[0]);
 	
 	for (size_t i = 1; i < expr->subexpr_amount; i+=2) {
-	  if (expr->subexpr[i]->type != BRACKET_EXPRESSION)
-		free(expr->subexpr[i]);	  
+	  if (expr->subexpr[i]->type == SIGN_EXPR) {
+		free(expr->subexpr[i]);
+	  }
 	  else
 		free_expression(expr->subexpr[i]);
 
@@ -253,6 +254,10 @@ void calculate_expression(expr_t* expr)
 {
   expr_t *a, *b, *c; 
 
+  // If zero subexpression
+  if (expr->subexpr_amount == 0)
+    return;
+  
   // If only one subexpression
   if (expr->subexpr_amount == 1 && expr->subexpr[0]->type == BRACKET_EXPRESSION) {
 	calculate_expression(expr->subexpr[0]);
@@ -284,7 +289,7 @@ void calculate_expression(expr_t* expr)
 	  else
 		a->value.value /= c->value.value;
 
-	  /* free_expression(c); */
+	   free_expression(c);
 	   expr->subexpr[i + 1] = expr->subexpr[i - 1];
 	}  
   }
@@ -312,8 +317,6 @@ void calculate_expression(expr_t* expr)
 		expr->value.value += c->value.value;
 	  else
 		expr->value.value -= c->value.value;
-
-	  /* free_expression(c); */	  
 	}
   }
 
@@ -344,7 +347,7 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		// If not enough space for new expression
 		if (expr->subexpr_capacity <= expr->subexpr_amount) {
 		  expr->subexpr = (expr_t**)realloc(expr->subexpr, \
-					expr->subexpr_capacity * 2);
+					 sizeof(expr_t)	* expr->subexpr_capacity * 2 );
 		  expr->subexpr_capacity *= 2;
 		}
 
@@ -393,10 +396,11 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 	  // If not enough space for new expression
 	  if (expr->subexpr_capacity <= expr->subexpr_amount) {
 		expr->subexpr = (expr_t**)realloc(expr->subexpr, \
-										  expr->subexpr_capacity * 2);
+			 sizeof(expr_t) *  expr->subexpr_capacity * 2);
 		expr->subexpr_capacity *= 2;
 		  
 	  }
+	  
 	  expr->subexpr[expr->subexpr_amount] = new_expr;
 	  expr->subexpr_amount++;
 		  
@@ -445,6 +449,7 @@ void evaluate(const char* str_)
 
   free_expression(main_expr);
   free(lexem_text);
+  
 }
 
 
@@ -452,7 +457,7 @@ int main()
 {
   char* tests[] = {"1-1", "1 -1", "1- 1", "1 - 1", "1- -1", \
 				   "1 - -1", "1--1", "6 + -(4)", "6 + -( -4)", \
-				   "25 --10 *  -12", "1- -1", \
+				   "25 --10 *  -12", "1- -1 + ()", \
 				   "324+234*-6846.45", "(2 / (2 + 3.33) * 4) - -6", \
 				   "-(5+10)", "(1+(45--(10 * 10))) * -0", "12*-1", "1 /1", "(-123)", "123", "2 /2+3 * 4.75- -6", "2 / (2 + 3) * 4.33 - -6", "12* 123"};
   size_t tests_length = 22;
