@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+
 enum compare_result{equal, greater, less};
 
 typedef struct stack {

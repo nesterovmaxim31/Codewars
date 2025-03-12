@@ -256,6 +256,7 @@ void calculate_expression(expr_t* expr)
   // If only one subexpression
   if (expr->subexpr_amount == 1 && expr->subexpr[0]->type == BRACKET_EXPRESSION) {
 	calculate_expression(expr->subexpr[0]);
+	expr->value.value = expr->subexpr[0]->value.value; 
 	goto END;
   }
   
@@ -283,45 +284,41 @@ void calculate_expression(expr_t* expr)
 	  else
 		a->value.value /= c->value.value;
 
-	  // a = c, and free c
-	  // free_expression(c);
-	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
-	  /* c = a;  */
+	  /* free_expression(c); */
+	   expr->subexpr[i + 1] = expr->subexpr[i - 1];
 	}  
   }
 
   // Find additions and subtractions
+  // Check if zero expressioin is bracket expression
+  if (expr->subexpr[0]->type == BRACKET_EXPRESSION && !expr->subexpr[0]->is_calculated)
+    calculate_expression(expr->subexpr[0]);  
+  expr->value.value += expr->subexpr[0]->value.value;
+  
   for (size_t i = 0; i < expr->subexpr_amount; i++) {
 	if (expr->subexpr[i]->type == SIGN_EXPR && \
 		(expr->subexpr[i]->value.sign == ADDITION ||\
 		 expr->subexpr[i]->value.sign == SUBTRACTION)) {
 	  
-	  a = expr->subexpr[i - 1];
 	  b = expr->subexpr[i];
 	  c = expr->subexpr[i + 1];
 	  
-	  // If a or c expression, calculate them
-	  if (a->type ==  BRACKET_EXPRESSION &&\
-		  !a->is_calculated)
-		calculate_expression(a);
+	  // If c expression, calculate them
 	  if (c->type == BRACKET_EXPRESSION &&\
 		  !c->is_calculated)
 		calculate_expression(c);
 
 	  if (b->value.sign == ADDITION)
-		a->value.value += c->value.value;
+		expr->value.value += c->value.value;
 	  else
-		a->value.value -= c->value.value;
+		expr->value.value -= c->value.value;
 
-	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
+	  /* free_expression(c); */	  
 	}
   }
 
 
  END:
-  
-  expr->value.value = expr->subexpr[0]->value.value; 
-  
   if (expr->is_negative)
 	expr->value.value *= -1;
   
@@ -347,7 +344,7 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		// If not enough space for new expression
 		if (expr->subexpr_capacity <= expr->subexpr_amount) {
 		  expr->subexpr = (expr_t**)realloc(expr->subexpr, \
-											expr->subexpr_capacity * 2);
+					expr->subexpr_capacity * 2);
 		  expr->subexpr_capacity *= 2;
 		}
 
@@ -359,6 +356,7 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		new_expr->subexpr_capacity = 64;
 		new_expr->subexpr_amount = 0;
 		new_expr->type = BRACKET_EXPRESSION;
+		new_expr->value.value = 0;
 
 		// Check if negative
 		if (lexem.sign == SUBTRACTION)
@@ -425,6 +423,7 @@ void evaluate(const char* str_)
   main_expr->subexpr_capacity = 64;
   main_expr->subexpr_amount = 0;
   main_expr->is_negative = 0;
+  main_expr->value.value = 0;
   main_expr->subexpr = (expr_t**)malloc(8 * main_expr->subexpr_capacity);
     
   str = str_;
