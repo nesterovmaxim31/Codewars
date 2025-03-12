@@ -86,8 +86,8 @@ void free_expression(expr_t* expr)
   }
 }
 
-void
-get_lexem(value_t expected_t, lexem_t* lexem)
+
+void get_lexem(value_t expected_t, lexem_t* lexem)
 {
   // Initial block
   char c;
@@ -300,7 +300,7 @@ void calculate_expression(expr_t* expr)
     calculate_expression(expr->subexpr[0]);  
   expr->value.value += expr->subexpr[0]->value.value;
   
-  for (size_t i = 0; i < expr->subexpr_amount; i++) {
+  for (size_t i = 1; i < expr->subexpr_amount; i+=2) {
 	if (expr->subexpr[i]->type == SIGN_EXPR && \
 		(expr->subexpr[i]->value.sign == ADDITION ||\
 		 expr->subexpr[i]->value.sign == SUBTRACTION)) {
@@ -317,6 +317,7 @@ void calculate_expression(expr_t* expr)
 		expr->value.value += c->value.value;
 	  else
 		expr->value.value -= c->value.value;
+	  
 	}
   }
 
@@ -430,11 +431,12 @@ void evaluate(const char* str_)
   main_expr->value.value = 0;
   main_expr->subexpr = (expr_t**)malloc(8 * main_expr->subexpr_capacity);
     
-  str = str_;
+  str = (char*)str_;
   error = 0;
 
   // lexem
-  char* lexem_text = (char*)malloc(strlen(str));
+  char* lexem_text = (char*)malloc(strlen(str_) + 1);
+  lexem_text[strlen(str_)] = '\0';
   lexem_t lexem;
   value_t expected_t = NUMBER;
   lexem.lexem = lexem_text;
@@ -448,8 +450,7 @@ void evaluate(const char* str_)
 	printf("%s = %d\n", str_, (int)main_expr->value.value);
 
   free_expression(main_expr);
-  free(lexem_text);
-  
+  free(lexem_text); 
 }
 
 
