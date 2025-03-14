@@ -12,7 +12,7 @@
 #define MOD(x, y) (x - (int)(x/y) * y)
 
 typedef enum {NaS = 0, SUBTRACTION = 1, ADDITION = 2, \
-	      MULTIPLICATION = 3, DIVISION = 4, MODULUS = 5} sign_t;
+			  MULTIPLICATION = 3, DIVISION = 4, MODULUS = 5} sign_t;
 
 typedef enum {UNDEFINED, NUMBER, SIGN, BRACKET, VARIABLE} value_t;
 
@@ -50,7 +50,7 @@ struct indendtifiers_set_st {
   indentifier_t* indentifiers;
   size_t length;
   size_t capacity;
-} identifiers;
+} indentifiers;
 
 // Error opcode
 int error = 0;
@@ -193,14 +193,18 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 
 		// Letter -> variable (name with 1 char) 
 		if (isalpha(c)) {
-		  is_variable = 1;
-		  
+		  lexem->lexem[0] = c;
+		  lexem->type = VARIABLE;
+		  return;
 		}
 
 		//  _ -> variable
 		if (c == '_') {
 		  is_variable = 1;
-		  
+		  lexem->lexem[0] = c;
+		  lexem_length++;
+		  value_started = 1;
+		  str = str + 1;
 		}
 		
 		// Minus
@@ -228,10 +232,18 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		c = str[0];
 
 		// Number
-		if (isdigit(c) || c == '.') {
+		if ((isdigit(c) || c == '.') && !is_variable) {
 		  lexem->lexem[lexem_length] = c;
 		  lexem_length++;
 		  str = str + 1;
+		  continue;
+		}
+
+		// Variable started with _
+		if (is_variable && (isalnum(c) || c == '_')) {
+		  str = str + 1;
+		  lexem->lexem[lexem_length] = c;
+		  lexem_length++;
 		  continue;
 		}
 
@@ -318,8 +330,8 @@ void calculate_expression(expr_t* expr)
 	  else
 	    a->value.value = MOD(a->value.value, c->value.value);
 
-	   free_expression(c);
-	   expr->subexpr[i + 1] = expr->subexpr[i - 1];
+	  free_expression(c);
+	  expr->subexpr[i + 1] = expr->subexpr[i - 1];
 	}  
   }
 
@@ -357,9 +369,21 @@ void calculate_expression(expr_t* expr)
   expr->is_calculated = 1;
 }
 
+// Get value of indentifier or set error to 'Invalid indentifer'
+double get_indentifier(const char* name) {
+  for (size_t i = 0; i < indentifiers.length; i++) {
+	if (!strcmp(name, indentifiers.indentifiers[i].name)) {
+	  return indentifiers.indentifiers[i].value;
+	}
+  }
+
+  error =  INVALID_IDENTIFIER;
+}
+
 // Create expression from lexems
 void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 {
+  double val;
   expr_t* new_expr;
   
   while(error == 0) {	
@@ -376,7 +400,7 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		// If not enough space for new expression
 		if (expr->subexpr_capacity <= expr->subexpr_amount) {
 		  expr->subexpr = (expr_t**)realloc(expr->subexpr, \
-					 sizeof(expr_t)	* expr->subexpr_capacity * 2 );
+											sizeof(expr_t)	* expr->subexpr_capacity * 2 );
 		  expr->subexpr_capacity *= 2;
 		}
 
@@ -424,13 +448,19 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 	  }
 	  // If variable
 	  else if (lexem.type == VARIABLE) {
-	    
+		val = get_indentifier(lexem.lexem);
+
+		// Indentifier doesn't exist
+		if (error == INVALID_IDENTIFIER) {
+		  printf("Invalid indentifier %s\n", lexem.lexem);
+		  return;
+		}
 	  }
 	  
 	  // If not enough space for new expression
 	  if (expr->subexpr_capacity <= expr->subexpr_amount) {
 		expr->subexpr = (expr_t**)realloc(expr->subexpr, \
-			 sizeof(expr_t) *  expr->subexpr_capacity * 2);
+										  sizeof(expr_t) *  expr->subexpr_capacity * 2);
 		expr->subexpr_capacity *= 2;
 		  
 	  }
@@ -474,7 +504,9 @@ double evaluate_expr(const char* str_)
   lexem.lexem = lexem_text;
 
   create_expression(main_expr, expected_t, lexem);
-  calculate_expression(main_expr);
+
+  if (error != INVALID_IDENTIFIER)
+	calculate_expression(main_expr);
 
   if (fabs(main_expr->value.value - (int)main_expr->value.value) > 0)
 	printf("%s = %f\n", str_, main_expr->value.value);
@@ -485,6 +517,31 @@ double evaluate_expr(const char* str_)
   free(lexem_text);
 
   return main_expr->value.value;
+}
+
+// Create new indentifier or change value of already created
+void set_indentifier(char* name, double value) {
+  // If variable with this name already exist -> change is value
+  for (size_t i = 0; i < indentifiers.length; i++) {
+	if (!strcmp(name, indentifiers.indentifiers[i].name)) {
+	  indentifiers.indentifiers[i].value = value;
+	  return;
+	}
+  }
+
+  // Create a new variable in other case
+
+  // Check for free space
+  if (indentifiers.capacity >= indentifiers.length) {
+	indentifiers.capacity *= 2; 
+	indentifiers.indentifiers = (indentifier_t*)realloc(indentifiers.indentifiers, \
+														sizeof(indentifier_t) * indentifiers.capacity);
+  }
+
+  strcpy(indentifiers.indentifiers[indentifiers.length].name, name);
+  indentifiers.indentifiers[indentifiers.length].value = value;
+      
+  indentifiers.length++;  
 }
 
 // evaluate 
@@ -506,27 +563,16 @@ void evaluate (char* original_expr)
     }
   }
 
-  // If assignment -> create new indentifier
+  // If assignment -> create new indentifier (or change value of already created)
   if (is_assignment) {    
-      indent = strtok(original_expr, "=");
-      expr = strtok(NULL, "=");
-      result = evaluate_expresssion(expr);
+	indent = strtok(original_expr, "=");
+	expr = strtok(NULL, "=");
+	result = evaluate_expr(expr);
 
-      // Check for free space
-      if (indentifiers.capacity >= indentifiers.length) {
-	indentifiers.capacity *= 2; 
-	indentifiers.indentifiers = (indentifier_t*)realloc(indentifiers.indentifiers, \
-				   sizeof(indentifier_t) * indentifiers.capacity);
-      }
-
-      strcpy(indentifiers.indentifiers[indentifiers.length].name, indent);
-      indentifiers.indentifiers[indentifiers.length].value = result;
-      
-      indentifiers.length++;
   }
 
   // If expression -> calculate
-  result = evaluate_expression(origin_expression);
+  result = evaluate_expr(original_expr);
 
 
   // Check for error and output result
