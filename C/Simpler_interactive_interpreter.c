@@ -194,6 +194,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		// Letter -> variable (name with 1 char) 
 		if (isalpha(c)) {
 		  lexem->lexem[0] = c;
+		  str = str + 1;
 		  lexem->type = VARIABLE;
 		  return;
 		}
@@ -448,13 +449,15 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 	  }
 	  // If variable
 	  else if (lexem.type == VARIABLE) {
-		val = get_indentifier(lexem.lexem);
-
+		val = get_indentifier(lexem.lexem);		
 		// Indentifier doesn't exist
 		if (error == INVALID_IDENTIFIER) {
 		  printf("Invalid indentifier %s\n", lexem.lexem);
 		  return;
 		}
+		
+		new_expr->type = NUMBER_EXPR;
+		new_expr->value.value = val;		
 	  }
 	  
 	  // If not enough space for new expression
@@ -508,12 +511,12 @@ double evaluate_expr(const char* str_)
   if (error != INVALID_IDENTIFIER)
 	calculate_expression(main_expr);
 
-  if (fabs(main_expr->value.value - (int)main_expr->value.value) > 0)
-	printf("%s = %f\n", str_, main_expr->value.value);
-  else
-	printf("%s = %d\n", str_, (int)main_expr->value.value);
+  /* if (fabs(main_expr->value.value - (int)main_expr->value.value) > 0) */
+  /* 	printf("%s = %f\n", str_, main_expr->value.value); */
+  /* else */
+  /* 	printf("%s = %d\n", str_, (int)main_expr->value.value); */
 
-  free_expression(main_expr);
+  // free_expression(main_expr);
   free(lexem_text);
 
   return main_expr->value.value;
@@ -521,6 +524,14 @@ double evaluate_expr(const char* str_)
 
 // Create new indentifier or change value of already created
 void set_indentifier(char* name, double value) {
+  // Detele space in name
+  for (size_t i = 0; i < strlen(name); i++) {
+	if (name[i] == ' ') {
+	  name[i] = '\0';
+	  break;
+	}
+  }
+  
   // If variable with this name already exist -> change is value
   for (size_t i = 0; i < indentifiers.length; i++) {
 	if (!strcmp(name, indentifiers.indentifiers[i].name)) {
@@ -532,47 +543,49 @@ void set_indentifier(char* name, double value) {
   // Create a new variable in other case
 
   // Check for free space
-  if (indentifiers.capacity >= indentifiers.length) {
+  if (indentifiers.capacity <= indentifiers.length) {
 	indentifiers.capacity *= 2; 
 	indentifiers.indentifiers = (indentifier_t*)realloc(indentifiers.indentifiers, \
-														sizeof(indentifier_t) * indentifiers.capacity);
+								sizeof(indentifier_t) * indentifiers.capacity);
   }
 
+  indentifiers.indentifiers[indentifiers.length].name = (char*)malloc(strlen(name) + 1);
   strcpy(indentifiers.indentifiers[indentifiers.length].name, name);
-  indentifiers.indentifiers[indentifiers.length].value = value;
-      
+  indentifiers.indentifiers[indentifiers.length].value = value;     
   indentifiers.length++;  
 }
 
 // evaluate 
 void evaluate (char* original_expr)
 {
+  size_t index;
   int is_assignment = 0;
-  char *indent, *expr;
+  char indent[1024], expr[1024];
   double result;
     
-  // Init for indentifiers array   
-  indentifiers.indentifiers = (indentifier_t*)malloc(sizeof(indentifier_t) * 32);
-  indentifiers.capacity = 32;
-  indentifiers.length = 0;
 
   // check if  assignment
   for (size_t i = 0; i < strlen(original_expr); i++) {
-    if (original_expr[i] == '=') {      
+    if (original_expr[i] == '=') {
+	  index = i;
       is_assignment = 1;
+	  break;
     }
   }
 
   // If assignment -> create new indentifier (or change value of already created)
-  if (is_assignment) {    
-	indent = strtok(original_expr, "=");
-	expr = strtok(NULL, "=");
+  if (is_assignment) {
+	memcpy(indent, original_expr, index);
+	/* indent = strtok(original_expr, "="); */
+	memcpy(expr, original_expr + index + 1, index);  
+	/* expr = strtok(NULL, "="); */
 	result = evaluate_expr(expr);
-
+	set_indentifier(indent, result);
   }
-
   // If expression -> calculate
-  result = evaluate_expr(original_expr);
+  else {
+	result = evaluate_expr(original_expr);
+  }
 
 
   // Check for error and output result
@@ -585,7 +598,12 @@ int main()
 {
   char* tests[] = {"x = 7", "x + 6", "y + 7"};
   size_t tests_length = 3;
-  
+
+  // Init for indentifiers array   
+  indentifiers.indentifiers = (indentifier_t*)malloc(sizeof(indentifier_t) * 32);
+  indentifiers.capacity = 32;
+  indentifiers.length = 0;
+
   for (size_t i = 0; i < tests_length; i++) {
 	evaluate(tests[i]);
   }
