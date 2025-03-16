@@ -1,13 +1,20 @@
+/*
+URL: https://www.codewars.com/kata/53005a7b26d12be55c000243/c
+Name: Simpler Interactive Interpreter
+Difficulty: 2 kyu
+Notes: This code was modified before sending for tests because of some codewars requirements
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
 
-#define ZERO_LEXEM 1
-#define END_OF_STR 2
-#define EXPECTED_OTHER_TYPE 3
-#define INVALID_IDENTIFIER 4
+#define ZERO_LEXEM 2
+#define END_OF_STR 3
+#define EXPECTED_OTHER_TYPE 4
+#define INVALID_IDENTIFIER 5
 
 #define MOD(x, y) (x - (int)(x/y) * y)
 
@@ -26,7 +33,7 @@ typedef struct {
 
 typedef union {
   sign_t sign;
-  double value;
+  int value;
 } expr_value;
 
 typedef struct expr_st{
@@ -43,7 +50,7 @@ typedef struct expr_st{
 
 typedef struct indentifier_st {
   char* name;
-  double value;  
+  int value;  
 } indentifier_t;
 
 struct indendtifiers_set_st {
@@ -56,7 +63,6 @@ struct indendtifiers_set_st {
 int error = 0;
 // Expression to parse
 char* str;
-
 
 
 sign_t issign(char c)
@@ -80,12 +86,15 @@ sign_t issign(char c)
 
 void free_expression(expr_t* expr)
 {
+  // If not bracket
   if (expr->type != BRACKET_EXPRESSION)
 	free(expr);
   
+  // If bracket
   else {
-	free(expr->subexpr[0]);
-	
+	if (expr->subexpr_amount > 0)
+	  free(expr->subexpr[0]);
+
 	for (size_t i = 1; i < expr->subexpr_amount; i+=2) {
 	  if (expr->subexpr[i]->type == SIGN_EXPR) {
 		free(expr->subexpr[i]);
@@ -103,26 +112,42 @@ void free_expression(expr_t* expr)
   }
 }
 
+// Check is this string is a emtpy string
+int is_empty(char* string)
+{
+  int flag = 1;
+  for (size_t i = 0; i < strlen(string); i++) {
+	if (string[i] != ' ' && string[i] != '\n' && string[i] != '\0') {
+	  flag = 0;
+	}
+  }
+
+  return flag;
+}
+
+
 void get_lexem(value_t expected_t, lexem_t* lexem)
 {
   // Initial block
   char c;
   int value_started = 0, value_negative = 0, is_variable = 0; 
   size_t length = strlen(str), lexem_length = 0;
-  
-  if (length == 0) {
+
+  //If string is empty 
+  if (is_empty(str)) {
+	lexem->type = UNDEFINED;
 	error = ZERO_LEXEM;
 	return;
   }
   
   memset(lexem->lexem, 0, length);
-  lexem->type = expected_t;
+  lexem->type = expected_t;  
     
   while (1) {
 	// If expected sign
 	if (expected_t == SIGN) {
 	  // EOF
-	  if (strlen(str) == 0) {
+	  if (strlen(str) == 0 || str[0] == '\n') {
 		error = END_OF_STR;
 		return;
 	  }
@@ -161,7 +186,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 	  // For empty result
 	  if (!value_started && !value_negative) {
 		// EOF
-		if(strlen(str) == 0) {
+		if(strlen(str) == 0 || str[0] == '\n') {
 		  error = END_OF_STR;
 		  return;
 		}
@@ -169,7 +194,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 
 		// Bracket
 		if (c == '(' || c == ')') {
-		  lexem->type=BRACKET;
+		  lexem->type = BRACKET;
 		  lexem->sign = ADDITION;
 		  str = str + 1;
 		  lexem->lexem[0] = c;
@@ -191,21 +216,16 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		  continue;
 		}
 
-		// Letter -> variable (name with 1 char) 
-		if (isalpha(c)) {
-		  lexem->lexem[0] = c;
-		  str = str + 1;
-		  lexem->type = VARIABLE;
-		  return;
-		}
-
-		//  _ -> variable
-		if (c == '_') {
+		// Variable
+		if (c == '_' || isalpha(c)) {
 		  is_variable = 1;
+		  lexem->type = VARIABLE;
+		  lexem->sign = ADDITION;
 		  lexem->lexem[0] = c;
 		  lexem_length++;
 		  value_started = 1;
 		  str = str + 1;
+		  continue;
 		}
 		
 		// Minus
@@ -226,7 +246,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 	  // Value 
 	  else if(value_started) {
 		// EOF
-		if (strlen(str) == 0) {
+		if (strlen(str) == 0 || str[0] == '\n') {
 		  error = END_OF_STR;
 		  return;
 		}
@@ -240,7 +260,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		  continue;
 		}
 
-		// Variable started with _
+		// Variable
 		if (is_variable && (isalnum(c) || c == '_')) {
 		  str = str + 1;
 		  lexem->lexem[lexem_length] = c;
@@ -255,7 +275,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 	  // Minus without value
 	  else if (!value_started && value_negative) {
 		// EOF
-		if (strlen(str) == 0) {
+		if (strlen(str) == 0 || str[0] == '\n') {
 		  error = EXPECTED_OTHER_TYPE;
 		  return;
 		}
@@ -270,7 +290,7 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		  return;
 		}
 
-		// Number
+		// Number 
 		if (isdigit(c)) {
 		  lexem->lexem[lexem_length] = c;
 		  lexem_length++;
@@ -279,6 +299,17 @@ void get_lexem(value_t expected_t, lexem_t* lexem)
 		  continue;
 		}
 
+		// Variable 
+		if (c == '_' && isalpha(c)) {
+		  is_variable = 1;
+		  value_started = 1;
+		  lexem->lexem[0] = c;
+		  lexem->type = VARIABLE;
+		  lexem->sign = SUBTRACTION;
+		  str = str + 1;
+		  continue;
+		}
+				
 		// Else
 		error = EXPECTED_OTHER_TYPE;
 		return;
@@ -326,8 +357,13 @@ void calculate_expression(expr_t* expr)
 	  // Make math operations
 	  if (b->value.sign == MULTIPLICATION)
 		a->value.value *= c->value.value;
-	  else if (b->value.sign == DIVISION)
+	  else if (b->value.sign == DIVISION) {
+		if (c->value.value == 0) {
+		  error = EXPECTED_OTHER_TYPE;
+		  return;
+		}
 		a->value.value /= c->value.value;
+	  }
 	  else
 	    a->value.value = MOD(a->value.value, c->value.value);
 
@@ -371,7 +407,7 @@ void calculate_expression(expr_t* expr)
 }
 
 // Get value of indentifier or set error to 'Invalid indentifer'
-double get_indentifier(const char* name) {
+int get_indentifier(const char* name) {
   for (size_t i = 0; i < indentifiers.length; i++) {
 	if (!strcmp(name, indentifiers.indentifiers[i].name)) {
 	  return indentifiers.indentifiers[i].value;
@@ -381,10 +417,12 @@ double get_indentifier(const char* name) {
   error =  INVALID_IDENTIFIER;
 }
 
+int recursion_counter = 1;
 // Create expression from lexems
 void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 {
-  double val;
+  int value_required = 0;
+  int val;
   expr_t* new_expr;
   
   while(error == 0) {	
@@ -393,9 +431,11 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 	// If lexem is bracket 
 	if (lexem.type == BRACKET) {
 	  expected_t = SIGN;
+	  value_required = 0;
 
 	  // Call recursion if (
 	  if (lexem.lexem[0] == '(') {
+		recursion_counter++;
 		new_expr = (expr_t*)malloc(sizeof(expr_t));
 		
 		// If not enough space for new expression
@@ -425,6 +465,10 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 		create_expression(new_expr, NUMBER, lexem);
 	  } // if (
 
+	  else if(lexem.lexem[0] == ')') {
+		recursion_counter--;
+		return;
+	  }
 	  else {
 		return;
 	  }
@@ -432,6 +476,11 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 
 	// If lexem is a sign, number or variable
 	// In case of variable, get value of this variable and use NUMBER_EXPR
+	else if (lexem.type == UNDEFINED) {
+	  if (value_required)
+		error = EXPECTED_OTHER_TYPE;
+	  return;
+	}
 	else {
 	  // Add new expression to current
 	  new_expr = (expr_t*)malloc(sizeof(expr_t));
@@ -439,20 +488,27 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
 
 	  // If number
 	  if (lexem.type == NUMBER) {
+		value_required = 0;
 		new_expr->type = NUMBER_EXPR;
 		new_expr->value.value = atof(lexem.lexem);
 	  }
 	  // If sign
 	  else if (lexem.type == SIGN) {
+		value_required = 1;
 		new_expr->type = SIGN_EXPR;
 		new_expr->value.sign = issign(lexem.lexem[0]);
 	  }
 	  // If variable
 	  else if (lexem.type == VARIABLE) {
-		val = get_indentifier(lexem.lexem);		
+		value_required = 0;
+		val = get_indentifier(lexem.lexem);
+		// check if variable is negative
+		if (lexem.sign == SUBTRACTION)
+		  val *= -1;
+		
 		// Indentifier doesn't exist
 		if (error == INVALID_IDENTIFIER) {
-		  printf("Invalid indentifier %s\n", lexem.lexem);
+		  printf("ERROR: Invalid identifier. No variable with name '%s' was found.\n", lexem.lexem);
 		  return;
 		}
 		
@@ -478,16 +534,14 @@ void create_expression(expr_t* expr, value_t expected_t, lexem_t lexem)
   }
 
   // ERROR
-  if (error == EXPECTED_OTHER_TYPE) {
-	printf("Expectred other type\n\n");
-	return;
-  }
-  
+  if (recursion_counter != 1 || value_required)
+	error = EXPECTED_OTHER_TYPE;
 }
 
 // evaluate expression
-double evaluate_expr(const char* str_)
+int evaluate_expr(const char* str_)
 {
+  int result;
   // main expression 
   expr_t* main_expr = (expr_t*)malloc(sizeof(expr_t));
   main_expr->type = BRACKET_EXPRESSION;
@@ -499,34 +553,37 @@ double evaluate_expr(const char* str_)
     
   str = str_;
   error = 0;
+  recursion_counter = 1;
 
   // lexem
-  char* lexem_text = (char*)malloc(strlen(str));
+  char* lexem_text = (char*)malloc(strlen(str_));
   lexem_t lexem;
   value_t expected_t = NUMBER;
   lexem.lexem = lexem_text;
 
   create_expression(main_expr, expected_t, lexem);
 
-  if (error != INVALID_IDENTIFIER)
+  if (error != INVALID_IDENTIFIER && error != EXPECTED_OTHER_TYPE)
 	calculate_expression(main_expr);
 
-  /* if (fabs(main_expr->value.value - (int)main_expr->value.value) > 0) */
-  /* 	printf("%s = %f\n", str_, main_expr->value.value); */
-  /* else */
-  /* 	printf("%s = %d\n", str_, (int)main_expr->value.value); */
-
-  // free_expression(main_expr);
+  result = main_expr->value.value;
+	
+  free_expression(main_expr);
   free(lexem_text);
 
-  return main_expr->value.value;
+  return result;
 }
 
 // Create new indentifier or change value of already created
-void set_indentifier(char* name, double value) {
+void set_indentifier(char* name, int value) {
+  int flag = 1;
   // Detele space in name
   for (size_t i = 0; i < strlen(name); i++) {
-	if (name[i] == ' ') {
+	// Skip spaces before variable
+	if (!flag && (name[i] == '_' || isalpha(name[i])))
+	  flag = 1;
+	  
+	if (name[i] == ' ' && flag) {
 	  name[i] = '\0';
 	  break;
 	}
@@ -539,9 +596,6 @@ void set_indentifier(char* name, double value) {
 	  return;
 	}
   }
-
-  // Create a new variable in other case
-
   // Check for free space
   if (indentifiers.capacity <= indentifiers.length) {
 	indentifiers.capacity *= 2; 
@@ -558,12 +612,18 @@ void set_indentifier(char* name, double value) {
 // evaluate 
 void evaluate (char* original_expr)
 {
+  // Do nothing if string is empty
+  if (is_empty(original_expr))
+	return;
+  
   size_t index;
   int is_assignment = 0;
-  char indent[1024], expr[1024];
-  double result;
-    
+  char *indent, *expr;  
+  int result;
 
+  indent = (char*)malloc(strlen(original_expr));
+  expr = (char*)malloc(strlen(original_expr));
+  
   // check if  assignment
   for (size_t i = 0; i < strlen(original_expr); i++) {
     if (original_expr[i] == '=') {
@@ -576,11 +636,21 @@ void evaluate (char* original_expr)
   // If assignment -> create new indentifier (or change value of already created)
   if (is_assignment) {
 	memcpy(indent, original_expr, index);
-	/* indent = strtok(original_expr, "="); */
-	memcpy(expr, original_expr + index + 1, index);  
-	/* expr = strtok(NULL, "="); */
+	indent[index] = '\0';
+	memcpy(expr, original_expr + index + 1, strlen(original_expr) - index - 1);
+	expr[strlen(original_expr) - index - 1] = '\0';
+	
+	if(is_empty(indent) || is_empty(expr)) {
+	  error = INVALID_IDENTIFIER;
+	  return;
+	}
+	
 	result = evaluate_expr(expr);
-	set_indentifier(indent, result);
+	// Check if function evaluate expr finished without error
+	if (error != EXPECTED_OTHER_TYPE || error != INVALID_IDENTIFIER)	
+	  set_indentifier(indent, result);
+
+
   }
   // If expression -> calculate
   else {
@@ -589,15 +659,20 @@ void evaluate (char* original_expr)
 
 
   // Check for error and output result
-  if (error != INVALID_IDENTIFIER) 
-    printf("result = %lf\n", result);
+  if (error != INVALID_IDENTIFIER && error != EXPECTED_OTHER_TYPE) 
+    printf("%d\n", result);
+  
+
+  free(indent);
+  free(expr);
 }
 
 
 int main()
 {
-  char* tests[] = {"x = 7", "x + 6", "y + 7"};
-  size_t tests_length = 3;
+  size_t buf_size;  
+  char* tests[] = {"x = 76", "x + 6", "y + 7", "x - -4\n"}, *buffer;
+  size_t tests_length = 4;
 
   // Init for indentifiers array   
   indentifiers.indentifiers = (indentifier_t*)malloc(sizeof(indentifier_t) * 32);
@@ -607,6 +682,18 @@ int main()
   for (size_t i = 0; i < tests_length; i++) {
 	evaluate(tests[i]);
   }
-  
+
+  #ifdef TEST
+  while (1) {
+	getline(&buffer, &buf_size, stdin);
+	evaluate(buffer);
+  }
+  #endif
+
+  // free indentifiers
+  for(size_t i = 0; i < indentifiers.length; i++) {
+	free(indentifiers.indentifiers[i].name);
+  }
+
   return 0;
 }
