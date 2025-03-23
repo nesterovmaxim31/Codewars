@@ -63,7 +63,6 @@ func DblLinear (n int) int {
 
 	for i := 0; i < n; i++ {
 		allvals = replace_minval(allvals)
-		//		fmt.Println(i)
 	}
 
 	return get_minval(allvals).minval
