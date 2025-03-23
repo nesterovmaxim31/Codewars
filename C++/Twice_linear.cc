@@ -1,91 +1,79 @@
+/*
+URL: https://www.codewars.com/kata/5672682212c8ecf83e000050
+Name: Twice linear
+Difficulty: 4 kyu
+*/
+
 #include <iostream>
 #include <iterator>
+#include <algorithm>
 #include <list>
 
 
 int DblLinear(int n) {
-  std::list<int> values {1};
+  if (n == 0)
+	return 1;
+  else if (n == 1)
+	return 3;
+  else if (n == 2)
+	return 4;
+	  
+  /* values_y store values from y(x) = 2 * x + 1,
+	 values_z store values form z(x) = 3 * x + 1 */
+  std::list<int> values_y{3}, values_z{4};
   int element, element_y, element_z, val;
 
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < n - 1; i++) {
 	// std::cout << i << std::endl;
-	/* Step 1 - take last element (the smallest one) and
-	   delete it from list */
-	element = values.back();
-	element_y = element * 2 + 1;
-	element_z = element * 3 + 1;
-	values.pop_back();
+	// If smallest value stores in values_y
+	if (values_y.front() < values_z.front()) {
+	  // Get value from list and delete it, then calculate two new values 
+	  element = values_y.front();
+	  element_y = element * 2 + 1;
+	  element_z = element * 3 + 1;
+	  values_y.pop_front();
 
-	/* Step 2 - iterating from the end insert z(element) and y(element) in
-	 right position - after smaller one, before bigger one (like sorting).
-	 If found duplicate - do nothing */
+	  // Add two new value in values_y and values_z
+	  if (values_y.back() != element_y)
+		values_y.push_back(element_y);
+	  if (values_z.back() != element_z)
+		values_z.push_back(element_z);
+	}
 
-	// If zero or 1 element
-	if (values.size() <= 1) {
-	  values.push_front(element_y);
-	  values.push_front(element_z);
+	// If smallest value stores in values_z
+	else if (values_y.front() > values_z.front()) {
+	  // Get value from list and delete it, then calculate two new values 
+	  element = values_z.front();
+	  element_y = element * 2 + 1;
+	  element_z = element * 3 + 1;
+	  values_z.pop_front();
+
+	  // Add two new value in values_y and values_z
+	  if (values_y.back() != element_y)
+		values_y.push_back(element_y);
+	  if (values_z.back() != element_z)
+		values_z.push_back(element_z);
+	}
+
+	// If equal min values in both lists
+	else if (values_z.front() == values_y.front()) {
+	  // Get value from list and delete it, then calculate two new values 
+	  element = values_z.front();
+	  element_y = element * 2 + 1;
+	  element_z = element * 3 + 1;
+	  values_z.pop_front();
+	  values_y.pop_front();
+
+	  // Add two new value in values_y and values_z
+	  if (values_y.back() != element_y)
+		values_y.push_back(element_y);
+	  if (values_z.back() != element_z)
+		values_z.push_back(element_z);
 	}
 	
-	else {
-	  // element_z
-	  values.push_front(element_z);
+  }
 
-	  
-	  // element_y (Binary seach)
-	  int low = 0, high = values.size() - 1, mid, pr_mid = 0;
-	  auto it = values.begin();
-
-	  while (low <= high) {
-		mid = (low + high) / 2;
-		std::advance(it, mid - pr_mid - 1);
-
-		// Borderline cases
-		if (it == values.begin() && element_y > *it) {
-		  values.push_front(element_y);
-		  break;
-		}
-
-		if (it == values.end() && element_y < *it) {
-		  values.push_back(element_y);
-		  break;
-		}
-		// End of bordeline cases
-		
-		// If equal -> do nothing and exit loop
-		if (element_y == *it) {
-		  break;
-		}
-
-		// If bigger 
-		else if (element_y > *it) {
-		  high = mid;
-		  pr_mid = mid;
-		  continue;
-		}
-
-		// if less
-		else if (element_y < *it) {
-		  // check if element is > privious
-		  it--;
-		  // Insert element 
-		  if (element > *it) {
-			it++;
-			values.insert(it, element_y);
-			break;
-		  }
-
-		  // it other case
-		  it++;
-		  low = mid;
-		  pr_mid = mid;
-		  continue;
-		}
-		
-	  } // End of while loop
-	} // End of if size is bigger than 1  
-  } 
-
-  return values.back();
+  return std::min(values_y.front(), values_z.front());
 }
 
 
