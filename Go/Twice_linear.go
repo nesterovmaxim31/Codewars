@@ -1,96 +1,80 @@
 package main
 
-import (
-	"fmt"
-	"sort"
-	"math"
-)
+import "fmt"
 
 
-func get_value(allvals []int, index int) int {
-	shift := 0
-	pr := allvals[0]
+type MinVal struct {
+	minval int
+	minval_i int
+}
 
-	for i := 1; i < len(allvals); i++ {
-		if (pr != allvals[i]) {			
-			shift++ 
-			pr = allvals[i]
-		}
-
-		if index == shift {
-			return allvals[i]
+// check in this value already exist in slice
+func is_in_slice(allvals []int, value int) bool {
+	for i := 0; i < len(allvals); i++ {
+		if allvals[i] == value {
+			return true
 		}
 	}
 
-	return allvals[0]
+	return false
 }
 
 
-func get_power3 (n int) int {
-	ans := 0
-
-	for i := 0; i <= n; i++ {
-		ans += int(math.Pow(3, float64(i)))
+func get_minval(allvals []int) MinVal {
+	var ans MinVal
+	ans.minval = allvals[0]
+	
+	for i := 0; i < len(allvals); i++ {
+		if (allvals[i] < allvals[ans.minval_i]) {
+			ans.minval_i = i
+			ans.minval = allvals[i]
+		}
 	}
 
 	return ans
 }
 
 
-func get_power2 (n int) int {
-	ans := 0
-
-	for i := 0; i <= n; i++ {
-		ans += int(math.Pow(2, float64(i)))
+// replace minimal value with two new and return replaced value
+func replace_minval(allvals []int) []int {
+	// find min value
+	var minval, minval_i int
+	ans := get_minval(allvals)
+	minval = ans.minval
+	minval_i = ans.minval_i
+	
+	if (is_in_slice(allvals, minval * 2 + 1) != true) {
+		allvals[minval_i] =  minval * 2 + 1
+	} else if (is_in_slice(allvals, minval * 3 + 1) != true) {
+		allvals[minval_i] =  minval * 3 + 1
 	}
 
-	return ans	
+	if (is_in_slice(allvals, minval * 3 + 1) != true) {
+		allvals = append(allvals, minval * 3 + 1)
+	}
+
+	
+	return allvals
 }
 
 
 func DblLinear (n int) int {
-	// If zero -> return 1 
-	if n == 0 {
-		return 1;
-	}
-
-	// Variables to store number
-	size := int(math.Log2(float64(n)))
-	size += (get_power3(n) / get_power2(n)) + 1
-	fmt.Println(size)
-	values := [][]int{}
 	allvals := []int{1}
 
-	// Fill allvals array with number
-	index := 0
-	values = append(values, []int{1})
-	
-	for j := 0; j < size; j++ {
-		val := []int{}
-		for i := 0; i < len(values[index]); i++ {
-			val = append(val, values[index][i] * 2 + 1)
-			val = append(val, values[index][i] * 3 + 1)
-		}
-
-		for i := 0; i < len(val); i++ {
-			allvals = append(allvals, val[i])
-		}
-
-		values = append(values, val)
-		index++
+	for i := 0; i < n; i++ {
+		allvals = replace_minval(allvals)
+		//		fmt.Println(i)
 	}
-	
-	sort.Ints(allvals)
 
-	return get_value(allvals, n)
+	return get_minval(allvals).minval
 }
 
 func main() {
-	fmt.Println(DblLinear(10)) // should be equal to 22
-	fmt.Println(DblLinear(50))
-	fmt.Println(DblLinear(100))
-	fmt.Println(DblLinear(500))
-	fmt.Println(DblLinear(1000))
+	fmt.Println("For 10:", DblLinear(10)) // should be equal to 22
+	fmt.Println("For 50:", DblLinear(50))
+	fmt.Println("For 100:", DblLinear(100))
+	fmt.Println("For 500:", DblLinear(500))
+	fmt.Println("For 1000:", DblLinear(1000))
 	
 }
 /*
