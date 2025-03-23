@@ -4,16 +4,16 @@
 
 int DblLinear(int n) {
   std::list<int> values {1};
-  int element, element_y, element_z;
+  int element, element_y, element_z, val;
   bool flag; 
 
   for (size_t i = 0; i < n; i++) {
-	/* Step 1 - take first element (the smallest one) and
+	/* Step 1 - take last element (the smallest one) and
 	   delete it from list */
-	element = values.front();
+	element = values.back();
 	element_y = element * 2 + 1;
 	element_z = element * 3 + 1;
-	values.pop_front();
+	values.pop_back();
 
 	// flag - if element_z is inserted
 	flag = false;
@@ -24,52 +24,53 @@ int DblLinear(int n) {
 
 	// If zero or 1 element
 	if (values.size() <= 1) {
-	  values.push_back(element_y);
-	  values.push_back(element_z);
+	  values.push_front(element_y);
+	  values.push_front(element_z);
 	}
 	
 	else {
-	  for (auto it = values.rbegin(); it != values.rend(); ++it) {
+	  for (auto it = values.begin(); it != values.end(); ++it) {
 		// element_z
+		val = *it;
 		if (!flag) {
 		  // If biggest than the last element
-		  if (it == values.rbegin() && element_z > *it) {
-			values.push_back(element_z);
+		  if (it == values.begin() && element_z > val) {
+			values.push_front(element_z);
 			flag = true;
 		  }
 		  // Skip if found duplicate
-		  else if (element_z == *it)
+		  else if (element_z == val)
 			flag = true;
-		  // If bigger than current *it and smallet than *(it + 1) - insert new el
-		  else if (element_z > *it) {
+		  // If bigger than current val and smallet than *(it + 1) - insert new el
+		  else if (element_z > val) {
 			flag = true;
-			values.insert(it.base(), element_z);
+			values.insert(it, element_z);
 		  }
 		  // If smaller that the first one
-		  else if (it == values.rend() && element_z < *it) {
+		  else if (it == values.end() && element_z < val) {
 			flag = true;
-			values.push_front(element_z);
+			values.push_back(element_z);
 		  }
 		}
 		// element_y
+		val = *it;
 		if (flag) {		
-		  if (it == values.rbegin() && element_y > *it) {
-			values.push_back(element_y);
+		  if (it == values.begin() && element_y > val) {
+			values.push_front(element_y);
 			break;
 		  }
 		  // Skip if found duplicate
-		  else if (element_y == *it) {
+		  if (element_y == val) {
 			break;
 		  }		   
-		  // If bigger than current *it and smallet than *(it + 1) - insert new el
-		  else if (element_y > *it) {
-			// values.push_back(element_y);
-			values.insert(it.base(), element_y);
+		  // If bigger than current val and smallet than *(it + 1) - insert new el
+		  if (element_y > val) {
+			values.insert(it, element_y);
 			break;
 		  }
 		  // If smaller that the first one
-		  else if (it == values.rend() && element_y < *it) {		   
-			values.push_front(element_y);
+		  if (it == values.end() && element_y < val) {		   
+			values.push_back(element_y);
 			break;
 		  }
 		}
@@ -77,7 +78,7 @@ int DblLinear(int n) {
 	}
   }
 
-  return values.front();
+  return values.back();
 }
 
 
