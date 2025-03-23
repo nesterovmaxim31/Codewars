@@ -1,22 +1,20 @@
 #include <iostream>
+#include <iterator>
 #include <list>
 
 
 int DblLinear(int n) {
   std::list<int> values {1};
   int element, element_y, element_z, val;
-  bool flag; 
 
   for (size_t i = 0; i < n; i++) {
+	// std::cout << i << std::endl;
 	/* Step 1 - take last element (the smallest one) and
 	   delete it from list */
 	element = values.back();
 	element_y = element * 2 + 1;
 	element_z = element * 3 + 1;
 	values.pop_back();
-
-	// flag - if element_z is inserted
-	flag = false;
 
 	/* Step 2 - iterating from the end insert z(element) and y(element) in
 	 right position - after smaller one, before bigger one (like sorting).
@@ -29,54 +27,63 @@ int DblLinear(int n) {
 	}
 	
 	else {
-	  for (auto it = values.begin(); it != values.end(); ++it) {
-		// element_z
-		val = *it;
-		if (!flag) {
-		  // If biggest than the last element
-		  if (it == values.begin() && element_z > val) {
-			values.push_front(element_z);
-			flag = true;
-		  }
-		  // Skip if found duplicate
-		  else if (element_z == val)
-			flag = true;
-		  // If bigger than current val and smallet than *(it + 1) - insert new el
-		  else if (element_z > val) {
-			flag = true;
-			values.insert(it, element_z);
-		  }
-		  // If smaller that the first one
-		  else if (it == values.end() && element_z < val) {
-			flag = true;
-			values.push_back(element_z);
-		  }
+	  // element_z
+	  values.push_front(element_z);
+
+	  
+	  // element_y (Binary seach)
+	  int low = 0, high = values.size() - 1, mid, pr_mid = 0;
+	  auto it = values.begin();
+
+	  while (low <= high) {
+		mid = (low + high) / 2;
+		std::advance(it, mid - pr_mid - 1);
+
+		// Borderline cases
+		if (it == values.begin() && element_y > *it) {
+		  values.push_front(element_y);
+		  break;
 		}
-		// element_y
-		val = *it;
-		if (flag) {		
-		  if (it == values.begin() && element_y > val) {
-			values.push_front(element_y);
-			break;
-		  }
-		  // Skip if found duplicate
-		  if (element_y == val) {
-			break;
-		  }		   
-		  // If bigger than current val and smallet than *(it + 1) - insert new el
-		  if (element_y > val) {
+
+		if (it == values.end() && element_y < *it) {
+		  values.push_back(element_y);
+		  break;
+		}
+		// End of bordeline cases
+		
+		// If equal -> do nothing and exit loop
+		if (element_y == *it) {
+		  break;
+		}
+
+		// If bigger 
+		else if (element_y > *it) {
+		  high = mid;
+		  pr_mid = mid;
+		  continue;
+		}
+
+		// if less
+		else if (element_y < *it) {
+		  // check if element is > privious
+		  it--;
+		  // Insert element 
+		  if (element > *it) {
+			it++;
 			values.insert(it, element_y);
 			break;
 		  }
-		  // If smaller that the first one
-		  if (it == values.end() && element_y < val) {		   
-			values.push_back(element_y);
-			break;
-		  }
+
+		  // it other case
+		  it++;
+		  low = mid;
+		  pr_mid = mid;
+		  continue;
 		}
-	  }
-	}
-  }
+		
+	  } // End of while loop
+	} // End of if size is bigger than 1  
+  } 
 
   return values.back();
 }
